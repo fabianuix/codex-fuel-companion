@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/AppIcon.png" width="128" alt="Codex Fuel app icon">
+  <img src="assets/AppIcon-1.02.png" width="128" alt="Codex Fuel app icon">
 </p>
 <h1 align="center">Codex Fuel</h1>
 <p align="center"><strong>Your Codex companion for Mac.</strong></p>
@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-15%2B-202124?style=flat-square" alt="macOS 15 and later">
   <img src="https://img.shields.io/badge/Apple_silicon_%26_Intel-supported-202124?style=flat-square" alt="Apple silicon and Intel">
-  <img src="https://img.shields.io/badge/Built_for-the_menu_bar-E6AC48?style=flat-square" alt="Built for the menu bar">
+  <img src="https://img.shields.io/badge/Built_for-the_menu_bar-BC7DF0?style=flat-square" alt="Built for the menu bar">
 </p>
 <p align="center">
   <a href="https://github.com/fabianuix/codex-fuel-companion/releases"><strong>Downloads & release notes</strong></a>
