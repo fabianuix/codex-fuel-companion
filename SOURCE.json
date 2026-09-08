@@ -7,7 +7,7 @@
     "CHANGELOG.md": "af94e9acde3c00744a713155fa1bda2c1e3ef753ac14b283ce63ead329455ccf",
     "LICENSE": "1482580462b6c6c69ec939a48df2d153b43128df71924e1dad174f407f6d6074",
     "Package.swift": "7553cc20c7bceac9b35ced787ffdec12cbf56fae2f5149d9b0ed2917d2542ab3",
-    "README.md": "9ba6387f8a456db96caed4f7f380cdbb028c77a3bba9e18937398ce63ddacd93",
+    "README.md": "18c21ccd9c233b079788777ec9d909a8bd20ae305799101fe6ee9c98fbaf92f2",
     "Resources/AppIcon.png": "fbf180a30bff723e264c91c6359fa5b671f7c9b6eb9d069f6f2934c3a412b5fe",
     "Sources/CodexUsage/AllowanceProgressStyle.swift": "ec9d5fda8e8add823fa701b9acfffbd8987ea280c257604de2aaf4b980974bc2",
     "Sources/CodexUsage/App.swift": "592ed076c5420c6f24597d3cece7bff27c5c16686dca5748f950a3944a25e34f",
@@ -42,7 +42,7 @@
     "Tests/GaugeTests.swift": "bc2f865f64e5713978ac7aaf977e018e14c511cd84593fa97b7fcf6de6dc9a61",
     "Tests/HistoryTests.swift": "228711163c0a7af38648e1d467f02ba8e2e7d3227b69527723a70ae1bc59c6d8",
     "Tests/PlanExamples.swift": "f8304bf2a11fceda339d107b6b6767cdef37b70487afa480412d3527bce93f02",
-    "Tests/PublicScreenshots.swift": "f673f7e705f0bd5578b36ba77f593197e4f51991b18c2b2b9ca9faaee96b81ce",
+    "Tests/PublicScreenshots.swift": "7f1109209a7599b754798f8664a8ee6912868b9c2dea54d0bccbcb6df410b908",
     "Tests/ShortcutRecorderTests.swift": "3b52e65c435895f5f0446f3dc22f710cad49e6b929a7d240f542166975c94c02",
     "Tests/StoreTests.swift": "f04c9220193aa0c4afb1e77c46cef11b23403724751b3ff5842ece26ce364e75",
     "Tests/UpdaterSmoke.swift": "abce99b953c988c7e983d14dc06ff640c2a01d0df743daf92cdcd85e1215726b",
@@ -55,10 +55,11 @@
     "scripts/build.sh": "b8cba32475bb6768650d179a97656040f1ba51368bee9fcf2cdabedaddf8b348",
     "scripts/render-assets.swift": "db66acffb1d612ac3a7f2a85a91888c1738ac7035e891dde494ec0d3b93efcfb",
     "scripts/render-plan-examples.sh": "527d85f8c9b5e00e13f861f925ef899cc0588847ee8f134a7103d259a34c929e",
-    "scripts/render-public-screenshots.sh": "cbcab1041e927ca219219e1abeaea4b0f2cf020aa60f36d71af975e2072d2bc2",
+    "scripts/render-public-screenshots.sh": "2cc3cf8fcd00e8775857d5541a96b43404e069cea79473466601703dd0cd29c0",
     "scripts/test-shortcut-recorder.sh": "8e6ecc483d6fb99ec1d90e61c9400eb2b01c44ce834a8e39b1821ee314d49ab3",
     "scripts/test-update-interface.sh": "697fdd76a47041c282c96bae70921de11a70d3ad4d990d1e47d6b1b5752a5647",
     "scripts/test-updater.sh": "b0e485f351d03a62f5e0d892de5c7c1eb3cc76db5751477c83401937983fb830",
-    "scripts/test.sh": "c92e5457ec84431939d324d60bbc8b3d7910d88cfa1a0c644f461850ecbec8f0"
+    "scripts/test.sh": "c92e5457ec84431939d324d60bbc8b3d7910d88cfa1a0c644f461850ecbec8f0",
+    "assets/screenshots/full.png": "5f8d300fdd7117fe34f9014053fc36df89e13fd6139ba9e205144f8be4c3268a"
   }
 }

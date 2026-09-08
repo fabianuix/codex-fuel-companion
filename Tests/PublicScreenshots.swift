@@ -11,14 +11,15 @@ import SwiftUI
         let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let output = root.appendingPathComponent("docs/public/assets/screenshots")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        for name in ["weekly", "settings", "presentation", "update"] {
+        for name in ["weekly", "full", "settings", "presentation", "update"] {
+            if let selected = CommandLine.arguments.dropFirst().first, name != selected { continue }
             let prefs = UserDefaults(suiteName: "fuel-public-preview-\(UUID().uuidString)")!
             let deadline = Date().addingTimeInterval(2 * 86400 + 5 * 3600)
             let limits = LimitsResponse(rateLimits: LimitBucket(limitId: "codex", limitName: nil,
                 primary: nil,
                 secondary: LimitWindow(usedPercent: 23, windowDurationMins: 10080, resetsAt: deadline.timeIntervalSince1970),
-                credits: nil, planType: "pro"),
-                rateLimitsByLimitId: nil, rateLimitResetCredits: nil, accountId: "sample")
+                credits: name == "full" ? Credits(hasCredits: true, unlimited: false, balance: "1640") : nil, planType: "pro"),
+                rateLimitsByLimitId: nil, rateLimitResetCredits: name == "full" ? ResetCredits(availableCount: 2) : nil, accountId: "sample")
             let store = UsageStore(operations: UsageOperations(fetch: { Snapshot(limits: limits) }, reset: { _ in .nothingToReset }, fetchReasoning: { .high }), preferences: prefs)
             store.snapshot = Snapshot(limits: limits)
             store.connectionError = nil

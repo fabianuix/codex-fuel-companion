@@ -26,6 +26,11 @@ Click the menu-bar icon to see what's left and when your allowance returns. When
 
 No extra Dock icon. Just a quiet place to check in, then get back to what you're building.
 
+<p align="center">
+  <img src="assets/screenshots/full.png" width="320" alt="Full allowance view with 77 percent remaining, 1,640 credits, and two available resets">
+</p>
+<p align="center"><sub>Credits and available resets appear when your account provides them.</sub></p>
+
 
 ## Get started
 
