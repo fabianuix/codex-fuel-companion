@@ -1,2 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"><channel><title>Codex Fuel updates</title><link>https://github.com/fabianuix/codex-fuel-companion</link><description>Latest versions of Codex Fuel for Mac</description><language>en</language></channel></rss>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Codex Fuel</title>
+        <item>
+            <title>1.0</title>
+            <pubDate>Tue, 08 Sep 2026 09:15:58 +0000</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/fabianuix/codex-fuel-companion/releases/download/build-13/Codex-Fuel-13.zip" length="2076352" type="application/octet-stream" sparkle:edSignature="7dLqi8FEHquCX3CVsc7LSperE7eo6nL7o370zLvemk6bx7fwKf76sezHWZOx+GN5NLqzCNxMXmMCJ4wwYUkECQ=="/>
+        </item>
+    </channel>
+</rss>
