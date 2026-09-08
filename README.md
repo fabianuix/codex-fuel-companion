@@ -29,7 +29,6 @@ your next reset arrives—all without breaking your flow.
 | **A clear credit balance** | Credits take the spotlight when your weekly allowance runs out. |
 | **Resets within reach** | See available resets and use one directly from the app. |
 | **Useful notifications** | Choose a low-credit alert and get notified when your allowance or resets return. |
-| **Spending pace** | Add an estimate of how long your credits may last to the menu bar tooltip. |
 | **Ready when you are** | Open the panel with **⌃⌥C**, or let Codex Fuel launch at login. |
 | **Works through interruptions** | Keep your last known balance visible when the connection drops. |
 | **Simple app updates** | Check for new versions in the background and install them from the app. |
@@ -43,10 +42,14 @@ no extra Dock icon.
 ## Get started
 
 1. Install and sign in to Codex, or the Codex CLI, on your Mac.
-2. Get Codex Fuel from **[Releases](https://github.com/fabianuix/codex-fuel-companion/releases)** and move it into **Applications**.
+2. Download **[Codex Fuel 1.0](https://github.com/fabianuix/codex-fuel-companion/releases/latest)**, unzip it, and move **Codex Fuel** into **Applications**.
 3. Open Codex Fuel and look for its icon in the menu bar.
 
-Open the **…** menu to configure alerts, launch at login, and app updates.
+Open **Settings** using the gear icon to configure alerts, your keyboard shortcut, launch at login, and app updates.
+
+Version **1.0** is available for Apple silicon and Intel. Downloads include a checksum, and automatic updates are authenticated with the app’s signing key. This release is not Apple-notarized, so macOS may require manual approval on first launch.
+
+If you have the earlier private build, install this version once to enable future automatic updates.
 
 ## Your usage stays yours
 
