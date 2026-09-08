@@ -13,7 +13,7 @@ struct UsageOperations: Sendable {
 @MainActor final class UsageStore: ObservableObject {
     @Published var snapshot = Snapshot()
     @Published private(set) var reasoningEffort: ReasoningEffort?
-    private var reasoningRefreshing = false
+    private(set) var reasoningRefreshing = false
     private var lastReasoningAttempt: Date?
     var reasoningDescription: String {
         reasoningEffort.map { "\($0.title) reasoning · most recently used Codex task" }
@@ -31,6 +31,19 @@ struct UsageOperations: Sendable {
     @Published var creditThreshold: Double { didSet { preferences.set(creditThreshold, forKey: "creditThreshold") } }
     @Published var alwaysShowBuyCredits: Bool { didSet { preferences.set(alwaysShowBuyCredits, forKey: "alwaysShowBuyCredits") } }
     @Published var alwaysShowResets: Bool { didSet { preferences.set(alwaysShowResets, forKey: "alwaysShowResets") } }
+    @Published var resetTimeDisplay: ResetTimeDisplay { didSet { preferences.set(resetTimeDisplay.rawValue, forKey: "resetTimeDisplay") } }
+    @Published var showReasoning: Bool { didSet { preferences.set(showReasoning, forKey: "showReasoning") } }
+    @Published var menuBarDisplay: MenuBarDisplay { didSet { preferences.set(menuBarDisplay.rawValue, forKey: "menuBarDisplay") } }
+    @Published var allowanceAlerts: Bool { didSet { preferences.set(allowanceAlerts, forKey: "allowanceAlerts") } }
+    @Published var allowanceAlertPreset: AllowanceAlertPreset { didSet { preferences.set(allowanceAlertPreset.rawValue, forKey: "allowanceAlertPreset") } }
+    @Published private(set) var customAllowanceThreshold: Int
+    @Published private(set) var pinnedPosition: PinnedPanelPosition?
+    @Published var panelPinned: Bool
+    @Published var presentationMode: Bool { didSet {
+        preferences.set(presentationMode, forKey: "presentationMode")
+        onPresentationModeChange?(presentationMode)
+    } }
+    var onPresentationModeChange: ((Bool) -> Void)?
     @Published var confirmingQuit = false
     @Published var settingsRequest = 0
     @Published var testingNotifications = false
@@ -49,6 +62,18 @@ struct UsageOperations: Sendable {
     private let operations: UsageOperations
     private let preferences: UserDefaults
     init(operations: UsageOperations = .live, preferences: UserDefaults = .standard) {
+        self.resetTimeDisplay = ResetTimeDisplay(rawValue: preferences.string(forKey: "resetTimeDisplay") ?? "") ?? .dateTime
+        self.showReasoning = preferences.object(forKey: "showReasoning") as? Bool ?? true
+        self.menuBarDisplay = MenuBarDisplay(rawValue: preferences.string(forKey: "menuBarDisplay") ?? "") ?? .percentage
+        self.allowanceAlerts = preferences.bool(forKey: "allowanceAlerts")
+        self.allowanceAlertPreset = AllowanceAlertPreset(rawValue: preferences.string(forKey: "allowanceAlertPreset") ?? "") ?? .both
+        self.customAllowanceThreshold = max(1, min(99, preferences.object(forKey: "customAllowanceThreshold") as? Int ?? 20))
+        self.pinnedPosition = preferences.data(forKey: "pinnedPanelPosition")
+            .flatMap { try? JSONDecoder().decode(PinnedPanelPosition.self, from: $0) }
+            .flatMap { $0.isValid ? $0 : nil }
+        // Pinning lasts for this app session; every launch starts unpinned.
+        self.panelPinned = false
+        self.presentationMode = preferences.bool(forKey: "presentationMode")
         self.operations = operations
         self.preferences = preferences
         self.alwaysShowBuyCredits = preferences.bool(forKey: "alwaysShowBuyCredits")
@@ -68,6 +93,25 @@ struct UsageOperations: Sendable {
             connectionError = "Checking connection…"
         }
     }
+    func savePinnedPosition(_ position: PinnedPanelPosition?) {
+        guard position?.isValid != false else { return }
+        pinnedPosition = position
+        if let position { preferences.set(try? JSONEncoder().encode(position), forKey: "pinnedPanelPosition") }
+        else { preferences.removeObject(forKey: "pinnedPanelPosition") }
+    }
+    func setCustomAllowanceThreshold(_ threshold: Int) {
+        customAllowanceThreshold = max(1, min(99, threshold))
+        preferences.set(customAllowanceThreshold, forKey: "customAllowanceThreshold")
+    }
+    func setAllowanceAlerts(_ enabled: Bool) {
+        optionError = nil
+        guard enabled else { allowanceAlerts = false; return }
+        requestNotifications? { [weak self] allowed in
+            guard let self else { return }
+            self.allowanceAlerts = allowed
+            if !allowed { self.optionError = "Allow notifications for Codex Fuel in System Settings → Notifications." }
+        }
+    }
     func saveShortcut(_ candidate: AppShortcut) -> Bool {
         guard candidate.isValid else { optionError = "Include Command or Control in your shortcut."; return false }
         guard registerShortcut?(candidate) == true else { optionError = "That shortcut is already in use. Try another."; return false }
@@ -78,10 +122,17 @@ struct UsageOperations: Sendable {
         return true
     }
     var tooltip: String {
+        if presentationMode { return "Codex Fuel · balances hidden" }
         let balance = snapshot.limits.map { "Codex Fuel · " + $0.main.primaryMenuValue } ?? "Codex Fuel · unavailable"
         let offline = isStale ? "\nOffline · last known balance" + (lastUpdated.map { " from " + $0.formatted(date: .abbreviated, time: .shortened) } ?? "") : ""
         let windows = snapshot.limits?.main.windows.map { "\($0.title) · \(Int($0.remaining))% left" }.joined(separator: "\n") ?? ""
-        return balance + (windows.isEmpty ? "" : "\n" + windows) + offline
+        let deadline: String
+        if menuBarDisplay == .remainingTime {
+            deadline = snapshot.limits?.main.limitingWindow?.reset.map {
+                "\nResets " + $0.formatted(date: .abbreviated, time: .shortened)
+            } ?? "\nReset time unavailable"
+        } else { deadline = "" }
+        return balance + (windows.isEmpty ? "" : "\n" + windows) + deadline + offline
     }
     func setAlerts(lowCredits: Bool, enabled: Bool) {
         optionError = nil
@@ -96,7 +147,7 @@ struct UsageOperations: Sendable {
         }
     }
     var isStale: Bool { connectionError != nil || snapshot.limitsError != nil }
-    var gaugeRemaining: Double? { snapshot.limits?.main.limitingWindow?.remaining }
+    var gaugeRemaining: Double? { presentationMode ? nil : snapshot.limits?.main.limitingWindow?.remaining }
     var availableResets: Int { max(0, snapshot.limits?.rateLimitResetCredits?.availableCount ?? 0) }
     var hasPendingReset: Bool {
         guard let account = snapshot.limits?.accountId else { return false }
@@ -115,15 +166,26 @@ struct UsageOperations: Sendable {
     var showResetRow: Bool { alwaysShowResets || showReset }
     var showReset: Bool { availableResets > 0 || hasPendingReset || isResetting }
     var canReset: Bool {
-        !isResetting && !refreshing && !isStale && snapshot.limits?.accountId != nil && (availableResets > 0 || hasPendingReset)
+        !presentationMode && !isResetting && !refreshing && !isStale && snapshot.limits?.accountId != nil && (availableResets > 0 || hasPendingReset)
     }
     var menuNumericValue: Double? {
-        guard let bucket = snapshot.limits?.main else { return nil }
-        return bucket.usesCredits ? bucket.credits?.balance.flatMap(Double.init) : bucket.limitingWindow?.remaining
+        guard !presentationMode, menuBarDisplay == .percentage, let bucket = snapshot.limits?.main else { return nil }
+        return bucket.limitingWindow?.remaining ?? bucket.credits?.balance.flatMap(Double.init)
     }
-    var menuTitle: String {
+    var menuTitle: String { menuTitle(at: Date()) }
+    func menuTitle(at now: Date) -> String {
+        if menuBarDisplay == .iconOnly { return "" }
+        if presentationMode { return "Hidden" }
         guard let bucket = snapshot.limits?.main else { return "—" }
-        return bucket.primaryMenuValue + (isStale ? " ·" : "")
+        let value: String
+        switch menuBarDisplay {
+        case .percentage:
+            value = bucket.limitingWindow.map { "\(Int($0.remaining))%" } ?? bucket.primaryMenuValue
+        case .remainingTime:
+            value = bucket.limitingWindow?.reset.map { MenuBarDisplay.countdown(to: $0, now: now) } ?? "—"
+        case .iconOnly: value = ""
+        }
+        return value + (isStale ? " ·" : "")
     }
     private func accept(_ next: Snapshot) {
         guard let limits = next.limits else {
@@ -132,13 +194,18 @@ struct UsageOperations: Sendable {
         }
         let now = Date()
         let alerts = UsageAlert.changes(from: history?.limits, to: limits, threshold: creditThreshold, now: now)
+        let allowanceWarnings = AllowanceWarning.crossings(from: history?.limits, to: limits,
+            thresholds: allowanceAlertPreset.thresholds(custom: customAllowanceThreshold))
         if history == nil { history = UsageHistory(limits: limits, date: now) }
         else { history?.record(limits, at: now) }
         if let history, let data = try? JSONEncoder().encode(history) { preferences.set(data, forKey: "usageHistory") }
         snapshot = next
         connectionError = nil
         lastUpdated = now
-        for alert in alerts {
+        if allowanceAlerts && !presentationMode && !allowanceWarnings.isEmpty {
+            onAlert?(.lowAllowance, allowanceWarnings.map(\.message).joined(separator: "\n"))
+        }
+        for alert in alerts where !presentationMode {
             if alert == .lowCredits && lowCreditAlerts {
                 onAlert?(alert, "Your balance is below \(Int(creditThreshold)) credits.")
             } else if alert != .lowCredits && resetAlerts && !isResetting {
@@ -146,15 +213,15 @@ struct UsageOperations: Sendable {
             }
         }
     }
-    private func refreshReasoning() {
+    func refreshReasoning(ifOlderThan age: TimeInterval = 5) {
         guard !reasoningRefreshing else { return }
-        if let lastReasoningAttempt, Date().timeIntervalSince(lastReasoningAttempt) < 5 { return }
+        if let lastReasoningAttempt, Date().timeIntervalSince(lastReasoningAttempt) < age { return }
         lastReasoningAttempt = Date()
         reasoningRefreshing = true
         let fetch = operations.fetchReasoning
         Task {
             let effort = await Task.detached(priority: .utility) { try? fetch() }.value
-            reasoningEffort = effort
+            if reasoningEffort != effort { reasoningEffort = effort }
             reasoningRefreshing = false
         }
     }

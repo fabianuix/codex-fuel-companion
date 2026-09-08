@@ -36,6 +36,16 @@ final class SimulatedCodex: @unchecked Sendable {
     var operations: UsageOperations { UsageOperations(fetch: { try self.fetch() }, reset: { try self.reset($0) }) }
 }
 
+private final class ReasoningSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func next() -> ReasoningEffort {
+        lock.lock(); defer { lock.unlock() }
+        count += 1
+        return count == 1 ? .high : .ultra
+    }
+}
+
 @main struct StoreTests {
     @MainActor static func settle(_ store: UsageStore) async {
         for _ in 0..<400 {
@@ -75,18 +85,32 @@ final class SimulatedCodex: @unchecked Sendable {
             throw NSError(domain: "SimulatedReasoningUnavailable", code: 1)
         })
         let unavailable = UsageStore(operations: unavailableOperations, preferences: preferences)
-        var metadataFinished = false
-        // Observe completion even when the published result remains nil.
-        let observation = unavailable.$reasoningEffort.dropFirst().sink { _ in metadataFinished = true }
         unavailable.refresh()
         await settle(unavailable)
-        await waitUntil { metadataFinished }
+        await waitUntil { !unavailable.reasoningRefreshing }
         precondition(unavailable.reasoningEffort == nil,
                      "Unavailable reasoning must keep the neutral appearance")
         precondition(unavailable.connectionError == nil && !unavailable.isStale && unavailable.menuTitle == "100%",
                      "A reasoning metadata failure must not turn valid usage into a connection error")
+        // The open panel can bypass the background cooldown without fetching usage.
+        let baselineReads = backend.fetchCount
+        let sequence = ReasoningSequence()
+        let rapid = UsageStore(operations: UsageOperations(fetch: { try backend.fetch() }, reset: { try backend.reset($0) }, fetchReasoning: { sequence.next() }), preferences: preferences)
+        rapid.refreshReasoning(ifOlderThan: 0)
+        await waitUntil { rapid.reasoningEffort == .high }
+        var updates = 0
+        let rapidObservation = rapid.$reasoningEffort.dropFirst().sink { _ in updates += 1 }
+        rapid.refreshReasoning() // Still within the five-second background cooldown.
+        try? await Task.sleep(for: .milliseconds(40))
+        precondition(updates == 0)
+        rapid.refreshReasoning(ifOlderThan: 0)
+        rapid.refreshReasoning(ifOlderThan: 0) // A pending request cannot overlap.
+        await waitUntil { updates == 1 }
+        precondition(rapid.reasoningEffort == .ultra, "A changed reasoning setting must appear without waiting for usage refresh")
+        precondition(backend.fetchCount == baselineReads, "Fast reasoning refresh must not increase account requests")
+        withExtendedLifetime(rapidObservation) {}
+        print("PASS: immediate panel reasoning refresh, background cooldown and no overlapping or account requests")
         precondition(backend.keys.isEmpty, "Reasoning refresh must never consume a reset")
-        withExtendedLifetime(observation) {}
         print("PASS: independent usage and reasoning refresh, Ultra detection, and neutral metadata failure without a usage error")
     }
     @MainActor static func main() async throws {
@@ -96,6 +120,11 @@ final class SimulatedCodex: @unchecked Sendable {
         await testReasoningRefresh(preferences: preferences)
         let backend = SimulatedCodex()
         let store = UsageStore(operations: backend.operations, preferences: preferences)
+        precondition(store.showReasoning, "Reasoning is visible by default")
+        store.showReasoning = false
+        precondition(!UsageStore(operations: backend.operations, preferences: preferences).showReasoning, "An explicit off preference must be preserved")
+        store.showReasoning = true
+
         store.refresh()
         await settle(store)
         precondition(store.showReset && store.canReset && store.availableResets == 1)
@@ -194,6 +223,115 @@ final class SimulatedCodex: @unchecked Sendable {
         precondition(reloaded.showBuyCredits && reloaded.showResetRow && reloaded.showCreditBalance)
         let restoredVisibility = UsageStore(operations: offlineOperations, preferences: preferences)
         precondition(restoredVisibility.alwaysShowBuyCredits && restoredVisibility.alwaysShowResets)
+        precondition(reloaded.resetTimeDisplay == .dateTime && !reloaded.panelPinned && !reloaded.presentationMode)
+        let deadline = Date(timeIntervalSince1970: 2_000_000_000)
+        func countdown(_ seconds: Double) -> String {
+            ResetTimeDisplay.countdown.label(for: deadline, now: deadline.addingTimeInterval(-seconds))
+        }
+        precondition(countdown(8100) == "Back in 2h 15m")
+        precondition(countdown(59) == "Back in less than a minute")
+        precondition(countdown(60) == "Back in 1m")
+        precondition(countdown(61) == "Back in 2m")
+        precondition(countdown(3600) == "Back in 1h 0m")
+        precondition(countdown(183600) == "Back in 2d 3h")
+        precondition(countdown(0) == "Reset due · refresh to update")
+        precondition(countdown(-60) == countdown(0))
+        precondition(ResetTimeDisplay.dateTime.label(for: deadline, now: deadline.addingTimeInterval(-60)).hasPrefix("Resets "))
+        let normalTitle = reloaded.menuTitle
+        var privacyChanged = false
+        reloaded.onPresentationModeChange = { privacyChanged = $0 }
+        reloaded.resetTimeDisplay = .countdown
+        reloaded.panelPinned = true
+        reloaded.presentationMode = true
+        precondition(privacyChanged && reloaded.menuTitle == "Hidden")
+        precondition(reloaded.menuNumericValue == nil && reloaded.gaugeRemaining == nil && !reloaded.canReset)
+        precondition(reloaded.tooltip == "Codex Fuel · balances hidden")
+        precondition(reloaded.snapshot.limits != nil, "Privacy must preserve the underlying live data")
+        preferences.set(true, forKey: "panelPinned") // Legacy saved pin must not enable it on launch.
+        let savedDisplay = UsageStore(operations: offlineOperations, preferences: preferences)
+        precondition(savedDisplay.resetTimeDisplay == .countdown && !savedDisplay.panelPinned && savedDisplay.presentationMode)
+        reloaded.presentationMode = false
+        precondition(!privacyChanged && reloaded.menuTitle == normalTitle && reloaded.menuNumericValue != nil)
+        let displaySuite = "CodexFuelDisplay-" + UUID().uuidString
+        let displayPreferences = UserDefaults(suiteName: displaySuite)!
+        defer { displayPreferences.removePersistentDomain(forName: displaySuite) }
+        let displayStore = UsageStore(operations: offlineOperations, preferences: displayPreferences)
+        precondition(displayStore.menuBarDisplay == .percentage && !displayStore.allowanceAlerts)
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let menuLimits = LimitsResponse(rateLimits: LimitBucket(limitId: "codex", limitName: nil,
+            primary: LimitWindow(usedPercent: 20, windowDurationMins: 300, resetsAt: now.timeIntervalSince1970 + 3600),
+            secondary: LimitWindow(usedPercent: 80, windowDurationMins: 10080, resetsAt: now.timeIntervalSince1970 + 8100),
+            credits: nil, planType: "pro"), rateLimitsByLimitId: nil, rateLimitResetCredits: nil, accountId: "test")
+        displayStore.snapshot = Snapshot(limits: menuLimits)
+        precondition(displayStore.menuTitle == "20%" && displayStore.menuNumericValue == 20)
+        displayStore.menuBarDisplay = .remainingTime
+        precondition(displayStore.menuTitle(at: now) == "2h 15m" && displayStore.menuNumericValue == nil)
+        precondition(displayStore.menuTitle(at: now.addingTimeInterval(8100)) == "Due")
+        precondition(MenuBarDisplay.countdown(to: now.addingTimeInterval(30), now: now) == "<1m")
+        precondition(MenuBarDisplay.countdown(to: now.addingTimeInterval(183600), now: now) == "2d 3h")
+        displayStore.connectionError = "Offline"
+        precondition(displayStore.menuTitle(at: now) == "2h 15m ·")
+        displayStore.menuBarDisplay = .iconOnly
+        precondition(displayStore.menuTitle.isEmpty && displayStore.menuNumericValue == nil)
+        displayStore.presentationMode = true
+        precondition(displayStore.menuTitle.isEmpty && displayStore.tooltip == "Codex Fuel · balances hidden")
+        displayStore.menuBarDisplay = .remainingTime
+        precondition(displayStore.menuTitle == "Hidden")
+        displayStore.presentationMode = false
+        displayStore.connectionError = nil
+        displayStore.snapshot = Snapshot(limits: visibilityLimits(0, 0, "100"))
+        precondition(displayStore.menuTitle == "—", "Unknown reset times must not be invented")
+        displayStore.requestNotifications = { $0(false) }
+        displayStore.setAllowanceAlerts(true)
+        precondition(!displayStore.allowanceAlerts && displayStore.optionError != nil)
+        displayStore.requestNotifications = { $0(true) }
+        displayStore.setAllowanceAlerts(true)
+        displayStore.allowanceAlertPreset = .custom
+        displayStore.setCustomAllowanceThreshold(120)
+        precondition(displayStore.customAllowanceThreshold == 99)
+        displayStore.setCustomAllowanceThreshold(-1)
+        precondition(displayStore.customAllowanceThreshold == 1)
+        displayStore.setCustomAllowanceThreshold(17)
+        displayStore.savePinnedPosition(PinnedPanelPosition(x: -900, top: 500))
+        let displayRestored = UsageStore(operations: offlineOperations, preferences: displayPreferences)
+        precondition(displayRestored.menuBarDisplay == .remainingTime && displayRestored.allowanceAlerts)
+        precondition(displayRestored.allowanceAlertPreset == .custom && displayRestored.customAllowanceThreshold == 17)
+        precondition(displayRestored.pinnedPosition == PinnedPanelPosition(x: -900, top: 500))
+        displayRestored.savePinnedPosition(PinnedPanelPosition(x: .infinity, top: 100))
+        precondition(displayRestored.pinnedPosition?.x == -900)
+        displayRestored.savePinnedPosition(nil)
+        precondition(UsageStore(operations: offlineOperations, preferences: displayPreferences).pinnedPosition == nil)
+        // Exercise alert delivery through the actual refresh path, with no system banners.
+        let alertSuite = "CodexFuelAllowance-" + UUID().uuidString
+        let alertPreferences = UserDefaults(suiteName: alertSuite)!
+        defer { alertPreferences.removePersistentDomain(forName: alertSuite) }
+        let prior = visibilityLimits(70, 70, "0")
+        let after = visibilityLimits(80, 91, "0")
+        alertPreferences.set(try JSONEncoder().encode(UsageHistory(limits: prior, date: now)), forKey: "usageHistory")
+        let alertOperations = UsageOperations(fetch: { Snapshot(limits: after) }, reset: { _ in .nothingToReset })
+        let alertStore = UsageStore(operations: alertOperations, preferences: alertPreferences)
+        alertStore.allowanceAlerts = true
+        var warnings: [String] = []
+        alertStore.onAlert = { alert, body in if alert == .lowAllowance { warnings.append(body) } }
+        alertStore.refresh(); await settle(alertStore)
+        precondition(warnings.count == 1 && warnings[0].contains("25% alert") && warnings[0].contains("10% alert"))
+        alertStore.refresh(); await settle(alertStore)
+        precondition(warnings.count == 1)
+        let restartedAlerts = UsageStore(operations: alertOperations, preferences: alertPreferences)
+        restartedAlerts.onAlert = { _, body in warnings.append(body) }
+        restartedAlerts.refresh(); await settle(restartedAlerts)
+        precondition(warnings.count == 1, "Restart must not duplicate the low-allowance alert")
+        alertPreferences.set(try JSONEncoder().encode(UsageHistory(limits: prior, date: now)), forKey: "usageHistory")
+        let privateAlerts = UsageStore(operations: alertOperations, preferences: alertPreferences)
+        privateAlerts.presentationMode = true
+        privateAlerts.onAlert = { _, body in warnings.append(body) }
+        privateAlerts.refresh(); await settle(privateAlerts)
+        precondition(warnings.count == 1 && privateAlerts.snapshot.limits?.main.limitingWindow?.remaining == 9)
+        privateAlerts.presentationMode = false
+        privateAlerts.refresh(); await settle(privateAlerts)
+        precondition(warnings.count == 1, "Unhiding balances must not replay muted alerts")
+        print("PASS: menu modes, countdown deadlines, privacy, persisted position/options, alert permission and bounds, delivery and deduplication")
+        print("PASS: countdown boundaries, default date format, saved display options, privacy outputs and restoration")
         print("PASS: visibility defaults, partially exhausted limits, remaining credits, available resets, overrides, and persistence")
         print("PASS: shortcut validation, conflict rollback, persistence, and always-visible menu balance")
         print("PASS: offline balance restoration and failed refresh retention, saved options, notification permission handling")

@@ -1,15 +1,30 @@
 import SwiftUI
 
 @MainActor private final class PanelNavigation: ObservableObject {
+    @Published var hoveredBadge: String?
     @Published var showingSettings = false
     @Published var pageVisible = true
     @Published var scrollEdges = ScrollEdges()
     var transitionTask: Task<Void, Never>?
+    private var hoverExitTask: Task<Void, Never>?
+    func hover(_ badge: String, inside: Bool) {
+        if inside {
+            hoverExitTask?.cancel()
+            hoveredBadge = badge
+        } else if hoveredBadge == badge {
+            hoverExitTask?.cancel()
+            hoverExitTask = Task { @MainActor in
+                do { try await Task.sleep(for: .milliseconds(80)) } catch { return }
+                if hoveredBadge == badge { hoveredBadge = nil }
+            }
+        }
+    }
 }
 
 struct UsagePanel: View {
     @ObservedObject var store: UsageStore
     @ObservedObject var updater: AppUpdater
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var navigation = PanelNavigation()
     var onConfirmQuit: (() -> Void)?
@@ -33,16 +48,12 @@ struct UsagePanel: View {
         .onChange(of: store.settingsRequest) { navigate(to: true) }
         .disabled(store.confirmingQuit || updater.showingDialog)
         .accessibilityHidden(store.confirmingQuit || updater.showingDialog)
-        .overlay {
-            if store.confirmingQuit || updater.showingDialog {
-                RoundedRectangle(cornerRadius: 24).fill(.black.opacity(0.42))
-                    .accessibilityHidden(true)
-            }
-        }
+        .modifier(BackdropDimmed(active: store.confirmingQuit || updater.showingDialog))
         .opacity(navigation.pageVisible ? 1 : 0)
         .offset(y: navigation.pageVisible || reduceMotion ? 0 : 6)
     }
     private func navigate(to settings: Bool) {
+        navigation.hoveredBadge = nil
         navigation.transitionTask?.cancel()
         guard !reduceMotion else {
             navigation.showingSettings = settings
@@ -61,79 +72,109 @@ struct UsagePanel: View {
             withAnimation(.easeOut(duration: 0.22)) { navigation.pageVisible = true }
         }
     }
+    private var showingBadgeTooltip: Bool { navigation.hoveredBadge != nil && !store.presentationMode && !store.confirmingQuit && !updater.showingDialog }
     private var usagePage: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
-            if store.isStale {
-                Label(store.snapshot.limits == nil ? "Unable to connect" : "Offline · last known balance", systemImage: "wifi.slash")
-                    .font(.caption).foregroundStyle(.secondary)
-                    .help(store.tooltip + "\n" + (store.connectionError ?? store.snapshot.limitsError ?? ""))
-            }
-            if let limits = store.snapshot.limits {
-                if limits.main.usesCredits, store.showCreditBalance, let credits = limits.main.credits {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline, spacing: 5) {
-                            MorphingText(text: credits.display, numericValue: credits.balance.flatMap(Double.init)).font(.system(size: 26, weight: .medium, design: .rounded)).monospacedDigit()
-                            if !credits.unlimited { Text("credits").font(.system(size: 12)).foregroundStyle(.secondary) }
-                            if store.showBuyCredits { Spacer(); buyCreditsButton }
-                        }
-                    }.matchedGeometryEffect(id: "creditBalance", in: continuity)
-                    if !limits.main.windows.isEmpty { Divider() }
-                    ForEach(Array(limits.main.windows.enumerated()), id: \.offset) { index, window in
-                        windowRow(window).matchedGeometryEffect(id: "window-\(index)", in: continuity)
-                    }
-                } else {
-                    ForEach(Array(limits.main.windows.enumerated()), id: \.offset) { index, window in
-                        windowRow(window).matchedGeometryEffect(id: "window-\(index)", in: continuity)
-                    }
-                    if limits.main.windows.isEmpty { Text("No usage limit reported").font(.caption).foregroundStyle(.secondary) }
-                    if store.showCreditBalance, let credits = limits.main.credits {
-                        Divider()
-                        HStack {
-                            HStack(spacing: 6) {
-                                MorphingText(text: credits.display, numericValue: credits.balance.flatMap(Double.init)).fontWeight(.medium).monospacedDigit()
-                                Text("credits").foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if store.showBuyCredits { buyCreditsButton }
-                        }.font(.system(size: 13))
-                            .matchedGeometryEffect(id: "creditBalance", in: continuity)
-                            .help("Credit units reported by Codex. Currency conversion is not provided.")
-                    }
-                }
-                if limits.main.credits == nil && store.showBuyCredits {
-                    HStack { Spacer(); buyCreditsButton }
-                }
-            } else if store.refreshing {
-                HStack { ProgressView().controlSize(.small); Text("Connecting…").font(.caption).foregroundStyle(.secondary) }.padding(.vertical, 16)
-            }
-            if let message = store.resetMessage {
-                MorphingText(text: message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            if let error = store.loginError { Text(error).font(.caption).foregroundStyle(.orange) }
-            if store.showResetRow {
-                Divider()
-                HStack {
-                    MorphingText(text: store.snapshot.limits == nil ? "Resets unavailable" : store.hasPendingReset ? "Reset pending" : "\(store.availableResets) reset\(store.availableResets == 1 ? "" : "s") available", numericValue: store.hasPendingReset ? nil : Double(store.availableResets))
+            Group {
+            if store.presentationMode {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label { Text("Balances hidden") } icon: { PresentationIcon().fill(Color.primary).frame(width: 20, height: 20) }.font(.system(size: 15, weight: .medium))
+                    Text("Presentation mode is on. Notifications are paused.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
-                    Spacer()
-                    Button { store.useReset() } label: {
-                        HStack(spacing: 5) {
-                            if store.isResetting { ProgressView().controlSize(.mini) }
-                            MorphingText(text: store.isResetting ? "Resetting…" : (store.hasPendingReset ? "Check reset" : "Use reset"))
-                        }
-                    }.buttonStyle(PanelActionButtonStyle()).disabled(!store.canReset)
-                        .help("Use one available reset to reset eligible Codex usage limits.")
+                    Text("Turn it off in Settings to show balances.").font(.system(size: 11)).foregroundStyle(.secondary)
+                }.padding(.vertical, 10)
+            } else {
+                if store.isStale {
+                    Label(store.snapshot.limits == nil ? "Unable to connect" : "Offline · last known balance", systemImage: "wifi.slash")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .help(store.tooltip + "\n" + (store.connectionError ?? store.snapshot.limitsError ?? ""))
                 }
-            }
+                if let limits = store.snapshot.limits {
+                    if limits.main.usesCredits, store.showCreditBalance, let credits = limits.main.credits {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                MorphingText(text: credits.display, numericValue: credits.balance.flatMap(Double.init)).font(.system(size: 26, weight: .medium, design: .rounded)).monospacedDigit()
+                                if !credits.unlimited { Text("credits").font(.system(size: 12)).foregroundStyle(.secondary) }
+                                if store.showBuyCredits { Spacer(); buyCreditsButton }
+                            }
+                        }.matchedGeometryEffect(id: "creditBalance", in: continuity)
+                        if !limits.main.windows.isEmpty { Divider() }
+                        ForEach(Array(limits.main.windows.enumerated()), id: \.offset) { index, window in
+                            windowRow(window).matchedGeometryEffect(id: "window-\(index)", in: continuity)
+                        }
+                    } else {
+                        ForEach(Array(limits.main.windows.enumerated()), id: \.offset) { index, window in
+                            windowRow(window).matchedGeometryEffect(id: "window-\(index)", in: continuity)
+                        }
+                        if limits.main.windows.isEmpty { Text("No usage limit reported").font(.caption).foregroundStyle(.secondary) }
+                        if store.showCreditBalance, let credits = limits.main.credits {
+                            Divider()
+                            HStack {
+                                HStack(spacing: 6) {
+                                    MorphingText(text: credits.display, numericValue: credits.balance.flatMap(Double.init)).fontWeight(.medium).monospacedDigit()
+                                    Text("credits").foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if store.showBuyCredits { buyCreditsButton }
+                            }.font(.system(size: 13))
+                                .matchedGeometryEffect(id: "creditBalance", in: continuity)
+                                .help("Credit units reported by Codex. Currency conversion is not provided.")
+                        }
+                    }
+                    if limits.main.credits == nil && store.showBuyCredits {
+                        HStack { Spacer(); buyCreditsButton }
+                    }
+                } else if store.refreshing {
+                    HStack { ProgressView().controlSize(.small); Text("Connecting…").font(.caption).foregroundStyle(.secondary) }.padding(.vertical, 16)
+                }
+                if let message = store.resetMessage {
+                    MorphingText(text: message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                if let error = store.loginError { Text(error).font(.caption).foregroundStyle(.orange) }
+                if store.showResetRow {
+                    Divider()
+                    HStack {
+                        MorphingText(text: store.snapshot.limits == nil ? "Resets unavailable" : store.hasPendingReset ? "Reset pending" : "\(store.availableResets) reset\(store.availableResets == 1 ? "" : "s") available", numericValue: store.hasPendingReset ? nil : Double(store.availableResets))
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { store.useReset() } label: {
+                            HStack(spacing: 5) {
+                                if store.isResetting { ProgressView().controlSize(.mini) }
+                                MorphingText(text: store.isResetting ? "Resetting…" : (store.hasPendingReset ? "Check reset" : "Use reset"))
+                            }
+                        }.buttonStyle(PanelActionButtonStyle()).disabled(!store.canReset)
+                            .help("Use one available reset to reset eligible Codex usage limits.")
+                    }
+                }
 
+            }
+            }
+            .modifier(BackdropDimmed(active: showingBadgeTooltip))
         }
         .padding(22)
         .frame(width: 320)
         .fixedSize(horizontal: false, vertical: true)
+        .overlay(alignment: .topLeading) {
+            if let badge = navigation.hoveredBadge, showingBadgeTooltip {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(badge == "reasoning" ? "Reasoning effort" : "Account plan")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(badge == "reasoning"
+                         ? "The reasoning setting of your most recently used Codex task."
+                         : "Your account’s current plan, as reported by Codex.")
+                        .font(.system(size: 11)).foregroundStyle(.primary.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(width: 276, alignment: .leading)
+                .padding(.leading, 22).padding(.top, 57)
+                .allowsHitTesting(false)
+            }
+        }
         .animation(motion, value: store.snapshot.limits?.main.usesCredits)
         .animation(motion, value: store.showReset)
         .animation(motion, value: store.resetMessage)
+        .transaction { if store.presentationMode { $0.animation = nil; $0.disablesAnimations = true } }
     }
     private var buildLabel: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
@@ -150,13 +191,60 @@ struct UsagePanel: View {
     }
     private var header: some View {
         HStack {
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("Codex Fuel").font(.system(size: 14, weight: .semibold))
-                if let plan = store.snapshot.limits?.planName {
-                    Text(plan).font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+            if store.showReasoning && !store.presentationMode {
+                HStack(spacing: 4) {
+                    ReasoningIcon().fill(colorScheme == .dark ? Color.black.opacity(0.8) : Color.white).frame(width: 12, height: 12)
+                    Text(store.reasoningEffort?.title ?? "—").font(.system(size: 10, weight: .medium))
                 }
+                .foregroundStyle(colorScheme == .dark ? Color.black.opacity(0.8) : Color.white)
+                .padding(.horizontal, 6).padding(.vertical, 4)
+                .background {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(LinearGradient(colors: ReasoningPalette.colors(effort: store.reasoningEffort, colorScheme: colorScheme), startPoint: .leading, endPoint: .trailing))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(LinearGradient(colors: [.white.opacity(0.36), .clear], startPoint: .top, endPoint: .bottom))
+                        }
+                }
+                .fixedSize()
+                .modifier(BackdropDimmed(active: showingBadgeTooltip && navigation.hoveredBadge != "reasoning"))
+                .contentShape(Rectangle())
+                .onHover { navigation.hover("reasoning", inside: $0) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(store.reasoningEffort.map { "\($0.title) reasoning" } ?? "Reasoning unavailable")
+                .accessibilityHint("Reasoning setting of the most recently used Codex task")
+            } else {
+                Text("Codex Fuel").font(.system(size: 14, weight: .semibold)).fixedSize()
+                    .modifier(BackdropDimmed(active: showingBadgeTooltip))
             }
-            Spacer()
+            if !store.presentationMode, let plan = store.snapshot.limits?.planName {
+                Text(plan).font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(store.showReasoning ? Color.black : Color.white)
+                    .padding(.horizontal, 6).padding(.vertical, 4)
+                    .frame(minHeight: 20)
+                    .background(store.showReasoning ? Color.white : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+                    .overlay {
+                        if !store.showReasoning {
+                            RoundedRectangle(cornerRadius: 6).strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
+                        }
+                    }
+                    .fixedSize()
+                    .modifier(BackdropDimmed(active: showingBadgeTooltip && navigation.hoveredBadge != "plan"))
+                .contentShape(Rectangle())
+                .onHover { navigation.hover("plan", inside: $0) }
+                    .accessibilityLabel("\(plan) plan")
+                    .accessibilityHint("Your current Codex account plan")
+            }
+            }
+            PanelDragHandle(enabled: store.panelPinned)
+                .frame(minWidth: 18, maxWidth: .infinity, minHeight: 20, maxHeight: 20)
+            HStack(spacing: 8) {
+            Button { store.panelPinned.toggle() } label: {
+                PinTackIcon(filled: store.panelPinned).fill(store.panelPinned ? Color.primary : Color.secondary).frame(width: 20, height: 20)
+            }.buttonStyle(.borderless).foregroundStyle(store.panelPinned ? Color.primary : Color.secondary)
+                .help(store.panelPinned ? "Unpin panel" : "Pin panel")
+                .accessibilityLabel(store.panelPinned ? "Unpin panel" : "Pin panel")
             if updater.showsBadge {
                 UpdateBadge(updater: updater, openSettings: { navigate(to: true) })
             } else {
@@ -165,6 +253,8 @@ struct UsagePanel: View {
             }.buttonStyle(.borderless).foregroundStyle(.secondary)
                 .help("Settings").accessibilityLabel("Settings")
             }
+            }
+            .modifier(BackdropDimmed(active: showingBadgeTooltip))
         }
     }
     private var settingsPage: some View {
@@ -175,7 +265,8 @@ struct UsagePanel: View {
                 }.buttonStyle(.borderless).foregroundStyle(.secondary)
                     .help("Back to usage").accessibilityLabel("Back to usage")
                 Text("Settings").font(.system(size: 14, weight: .semibold))
-                Spacer()
+                PanelDragHandle(enabled: store.panelPinned)
+                    .frame(minWidth: 18, maxWidth: .infinity, minHeight: 20, maxHeight: 20)
                 Button { onConfirmQuit?() } label: {
                     PowerOffIcon().stroke(Color.primary, style: StrokeStyle(lineWidth: 2, lineCap: .square))
                         .frame(width: 17, height: 17).frame(width: 24, height: 24)
@@ -195,7 +286,62 @@ struct UsagePanel: View {
 
                     }
                     Divider()
+                    settingsSection("Display") {
+                        HStack {
+                            Text("Menu bar")
+                            Spacer()
+                            Picker("Menu bar display", selection: $store.menuBarDisplay) {
+                                ForEach(MenuBarDisplay.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
+                            }.pickerStyle(.menu).controlSize(.regular).labelsHidden()
+                                .fixedSize().frame(minHeight: 28)
+                        }
+                        if store.menuBarDisplay == .remainingTime {
+                            Text("Time until the tightest allowance resets. A dash means no reset time is available.")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            Text("Reset time")
+                            Spacer()
+                            Picker("Reset time", selection: $store.resetTimeDisplay) {
+                                Text("Date & time").tag(ResetTimeDisplay.dateTime)
+                                Text("Countdown").tag(ResetTimeDisplay.countdown)
+                            }.pickerStyle(.menu).controlSize(.regular).labelsHidden()
+                                .fixedSize().frame(minHeight: 28)
+                        }
+                        settingToggle("Show reasoning", isOn: $store.showReasoning)
+                        HStack {
+                            PresentationIcon().fill(Color.secondary).frame(width: 18, height: 18)
+                            settingToggle("Presentation mode", isOn: $store.presentationMode)
+                        }
+                        Text("Hide balances and pause notifications while sharing your screen.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Divider()
                     settingsSection("Notifications") {
+                        settingToggle("Allowance running low", isOn: Binding(get: { store.allowanceAlerts }, set: store.setAllowanceAlerts))
+                        if store.allowanceAlerts {
+                            HStack {
+                                Text("Alert at")
+                                Spacer()
+                                Picker("Allowance alert threshold", selection: $store.allowanceAlertPreset) {
+                                    ForEach(AllowanceAlertPreset.allCases, id: \.self) { preset in Text(preset.title).tag(preset) }
+                                }.pickerStyle(.menu).controlSize(.regular).labelsHidden()
+                                    .fixedSize().frame(minHeight: 28)
+                            }
+                            if store.allowanceAlertPreset == .custom {
+                                HStack {
+                                    Text("Remaining")
+                                    Spacer()
+                                    TextField("Remaining percentage", value: Binding(get: { store.customAllowanceThreshold }, set: store.setCustomAllowanceThreshold), format: .number)
+                                        .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing).frame(width: 46)
+                                    Text("%")
+                                    Stepper("Remaining percentage", value: Binding(get: { store.customAllowanceThreshold }, set: store.setCustomAllowanceThreshold), in: 1...99)
+                                        .labelsHidden().fixedSize()
+                                }
+                            }
+                            Text("Once when an allowance crosses each chosen percentage. Custom values: 1–99%.")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
                         settingToggle("Credits running low", isOn: Binding(get: { store.lowCreditAlerts }, set: { store.setAlerts(lowCredits: true, enabled: $0) }))
                         if store.lowCreditAlerts {
                             HStack {
@@ -248,8 +394,8 @@ struct UsagePanel: View {
                     if isDevelopmentBuild {
                         Divider()
                         settingsSection("Development") {
-                            settingToggle("Test notifications", isOn: Binding(get: { store.testingNotifications }, set: { store.runNotificationTests?($0) }))
-                            Text(store.notificationTestStatus ?? "Preview all three alerts, one every five seconds.")
+                            settingToggle("Test notifications", isOn: Binding(get: { store.testingNotifications }, set: { store.runNotificationTests?($0) })).disabled(store.presentationMode)
+                            Text(store.notificationTestStatus ?? "Preview all four alerts, one every five seconds.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)
                             Divider()
                             settingToggle("Test updates", isOn: Binding(get: { updater.testingUpdates }, set: updater.setTestingUpdates))
@@ -318,8 +464,8 @@ struct UsagePanel: View {
                 .accessibilityValue(store.reasoningDescription)
                 .animation(motion, value: window.remaining)
             if let reset = window.reset {
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    MorphingText(text: reset <= context.date ? "Reset due · refresh to update" : "Resets \(reset.formatted(.dateTime.month(.abbreviated).day().hour().minute()))")
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    MorphingText(text: store.resetTimeDisplay.label(for: reset, now: context.date))
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
@@ -383,5 +529,16 @@ private struct PowerOffIcon: Shape {
         p.move(to: point(12, 2))
         p.addLine(to: point(12, 11))
         return p
+    }
+}
+
+/// Shared visual treatment behind tooltips and native modal dialogs.
+private struct BackdropDimmed: ViewModifier {
+    let active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content.opacity(active ? 0.2 : 1)
+            .blur(radius: active ? 3 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: active)
     }
 }

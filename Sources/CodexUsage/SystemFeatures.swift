@@ -3,6 +3,15 @@ import Carbon
 import UserNotifications
 
 @MainActor final class SystemFeatures: NSObject, UNUserNotificationCenterDelegate {
+    var presentationMode = false {
+        didSet {
+            guard presentationMode else { return }
+            notificationTestTask?.cancel()
+            onTestStatus?(false, nil)
+            UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        }
+    }
     var onTestStatus: ((Bool, String?) -> Void)?
     private var notificationTestTask: Task<Void, Never>?
     private var hotKey: EventHotKeyRef?
@@ -46,6 +55,7 @@ import UserNotifications
         }
     }
     func notify(_ alert: UsageAlert, body: String) {
+        guard !presentationMode else { return }
         let content = UNMutableNotificationContent()
         content.title = alert.title
         content.body = body
@@ -55,7 +65,7 @@ import UserNotifications
     func testNotifications(_ enabled: Bool) {
         guard Bundle.main.object(forInfoDictionaryKey: "CodexFuelDevelopmentBuild") as? Bool == true else { return }
         notificationTestTask?.cancel()
-        guard enabled else { onTestStatus?(false, "Notification test stopped."); return }
+        guard enabled && !presentationMode else { onTestStatus?(false, "Notification test stopped."); return }
         onTestStatus?(true, "Checking notification permission…")
         notificationTestTask = Task { @MainActor in
             let allowed = await withCheckedContinuation { continuation in
@@ -65,11 +75,13 @@ import UserNotifications
             guard allowed else { onTestStatus?(false, "Allow Codex Fuel notifications in System Settings to test alerts."); return }
             let samples: [(UsageAlert, String)] = [
                 (.lowCredits, "You have 50 credits left. This is a test notification."),
+                (.lowAllowance, "Weekly limit: 10% remaining. This is a test notification."),
                 (.weeklyReset, "Your weekly Codex allowance is ready to use. This is a test notification."),
                 (.resetAvailable, "Open Codex Fuel to use your available reset. This is a test notification.")
             ]
             for (index, sample) in samples.enumerated() {
                 guard !Task.isCancelled else { return }
+                guard !presentationMode else { return }
                 let content = UNMutableNotificationContent()
                 content.title = sample.0.title
                 content.body = sample.1
@@ -82,14 +94,14 @@ import UserNotifications
                     return
                 }
                 guard !Task.isCancelled else { return }
-                onTestStatus?(true, "\(index + 1) of 3 · \(sample.0.title)")
+                onTestStatus?(true, "\(index + 1) of \(samples.count) · \(sample.0.title)")
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
             }
-            onTestStatus?(false, "All three test notifications sent. Turn on to repeat.")
+            onTestStatus?(false, "All test notifications sent. Turn on to repeat.")
         }
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        Task { @MainActor in completionHandler(self.presentationMode ? [] : [.banner, .sound]) }
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         Task { @MainActor in self.toggle?() }

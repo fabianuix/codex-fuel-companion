@@ -4,8 +4,12 @@ import SwiftUI
 private struct StatusBalance: View {
     var text: String
     var value: Double?
+    var hidden = false
     var body: some View {
-        MorphingText(text: text, numericValue: value)
+        Group {
+            if hidden { Text(text) }
+            else { MorphingText(text: text, numericValue: value) }
+        }
             .font(.system(size: 12, weight: .medium)).monospacedDigit()
             .foregroundStyle(.primary)
             .fixedSize()
@@ -25,6 +29,9 @@ private final class StatusIconView: NSImageView {
 @MainActor final class StatusContent {
     private let item: NSStatusItem
     private var panelVisible = false
+    private var lastText: String?
+    private var lastValue: Double?
+    private var lastHidden = false
     private let iconView = StatusIconView()
     private let textHost = StatusTextHost(rootView: StatusBalance(text: "", value: nil))
     var image: NSImage? {
@@ -54,7 +61,9 @@ private final class StatusIconView: NSImageView {
             self.item.button?.highlight(self.panelVisible)
         }
     }
-    func update(text: String, value: Double?) {
+    func update(text: String, value: Double?, hidden: Bool = false) {
+        guard text != lastText || value != lastValue || hidden != lastHidden else { return }
+        lastText = text; lastValue = value; lastHidden = hidden
         guard let button = item.button else { return }
         let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         let width = text.isEmpty ? 0 : ceil((text as NSString).size(withAttributes: [.font: font]).width)
@@ -63,7 +72,7 @@ private final class StatusIconView: NSImageView {
         iconView.frame = NSRect(x: 1, y: (height - 18) / 2, width: 18, height: 18)
         textHost.isHidden = text.isEmpty
         textHost.frame = NSRect(x: 21, y: 0, width: width, height: height)
-        textHost.rootView = StatusBalance(text: text, value: value)
+        textHost.rootView = StatusBalance(text: text, value: value, hidden: hidden)
         if panelVisible { button.highlight(true) }
         button.setAccessibilityLabel(text.isEmpty ? "Codex Fuel" : "Codex Fuel, \(text)")
     }

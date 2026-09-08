@@ -3,7 +3,7 @@
 </p>
 <h1 align="center">Codex Fuel</h1>
 <p align="center"><strong>Your Codex usage, a glance away.</strong></p>
-<p align="center">A small Mac app for keeping track of your allowance, credits, and next reset.</p>
+<p align="center">Your Codex allowance, reset countdowns, and alerts in one quiet Mac app.</p>
 <p align="center">
   <a href="https://github.com/fabianuix/codex-fuel-companion/releases/latest"><strong>↓ Download for Mac</strong></a>
   &nbsp; · &nbsp;
@@ -16,7 +16,7 @@
 <br>
 
 <p align="center">
-  <img src="assets/screenshots/weekly.png" width="360" alt="Weekly allowance: 77 percent remaining, 1,640 credits, and two available resets">
+  <img src="assets/screenshots/weekly.png" width="360" alt="A clean weekly allowance view with 77 percent remaining and a reset countdown">
 </p>
 <p align="center"><sub>Real app screens with sample data. Your layout adapts to the limits and credits on your account.</sub></p>
 
@@ -26,9 +26,6 @@ Click the menu-bar icon to see what's left and when your allowance returns. When
 
 No extra Dock icon. Just a quiet place to check in, then get back to what you're building.
 
-<p align="center">
-  <img src="assets/screenshots/credits.png" width="320" alt="When the weekly allowance runs out, the credit balance moves to the top">
-</p>
 
 ## Get started
 
@@ -40,32 +37,42 @@ That's it—Codex Fuel uses your existing Codex sign-in.
 
 ## Make it yours
 
-Open the gear icon to choose your keyboard shortcut, launch at login, and notification preferences. Get a heads-up when credits run low or your usage becomes available again.
+- **Your menu bar, your choice.** Show the remaining percentage, time until reset, or just the icon.
+- **Reset countdowns.** Keep the exact date and time, or switch to a live countdown.
+- **A panel that stays nearby.** Pin it, drag it beside your work, and keep its saved position. Each launch starts unpinned. Right-click the menu-bar icon to return it to its original position.
+- **Alerts at the right moment.** Choose 25%, 10%, both, or your own remaining-allowance threshold. Credit and reset notifications are available too.
+- **Reasoning at a glance.** See the reasoning setting of your most recently used Codex task, with matching colors and a short hover explanation. You can hide this badge in Settings.
+- **Quick access.** Set your own keyboard shortcut and choose whether the app launches at login.
 
 <details>
 <summary><strong>Take a look at Settings</strong></summary>
 <br>
 <p align="center">
-  <img src="assets/screenshots/settings.png" width="320" alt="Settings with a custom keyboard shortcut, a low-credit notification threshold, and reset notifications">
+  <img src="assets/screenshots/settings.png" width="320" alt="Settings with display choices, reset countdowns, presentation mode, and custom allowance alerts">
 </p>
 </details>
+
+## Share your screen comfortably
+
+Turn on **Presentation mode** in Settings to hide balances in the panel and menu bar and silence usage alerts. Turn it off when you're ready to see your usage again.
+
+<p align="center">
+  <img src="assets/screenshots/presentation.png" width="320" alt="Presentation mode with balances hidden">
+</p>
 
 ## Updates, without the fuss
 
 When an update is ready, an **UPDATE** button appears in the app. Install it when you're ready, or check manually from Settings.
 
-<details>
-<summary><strong>See how app updates work</strong></summary>
-<br>
 <p align="center">
-  <img src="assets/screenshots/update.png" width="320" alt="A compact update prompt with Later and Update now buttons">
+  <img src="assets/screenshots/update.png" width="320" alt="The refreshed panel with an UPDATE button">
 </p>
-<p align="center"><sub>Choose Update now. Codex Fuel downloads the update and reopens when it's ready.</sub></p>
-</details>
+
+See the [changelog](CHANGELOG.md) for a short list of changes in each release.
 
 ## Made to feel at home
 
-Native Liquid Glass on macOS 26 and later, with a translucent panel on earlier supported versions. Smooth transitions, support for Reduce Motion, and your last known balance when you're offline.
+Native Liquid Glass on macOS 26 and later, with a translucent panel on earlier supported versions. Refined badges and icons, soft blur behind tooltips and dialogs, smooth transitions, support for Reduce Motion, and your last known balance when you're offline.
 
 Your preferences stay on your Mac. There's no extra account to create and no analytics service receiving your usage. Update checks contact GitHub for new versions and downloads.
 

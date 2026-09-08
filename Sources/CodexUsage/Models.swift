@@ -124,7 +124,7 @@ enum ReasoningEffort: String, Sendable, CaseIterable {
         switch self {
         case .none: return "None"
         case .minimal: return "Minimal"
-        case .low: return "Low"
+        case .low: return "Light"
         case .medium: return "Medium"
         case .high: return "High"
         case .xhigh: return "Extra high"
@@ -139,5 +139,76 @@ struct ReasoningMetadataResponse: Decodable {
     let data: [Metadata]
     var effort: ReasoningEffort? {
         data.first?.reasoningEffort.flatMap(ReasoningEffort.init(rawValue:))
+    }
+}
+
+/// User-selected presentation of an allowance's reset deadline.
+enum ResetTimeDisplay: String, CaseIterable {
+    case dateTime, countdown
+    func label(for reset: Date, now: Date) -> String {
+        let seconds = reset.timeIntervalSince(now)
+        guard seconds > 0 else { return "Reset due · refresh to update" }
+        guard self == .countdown else {
+            return "Resets \(reset.formatted(.dateTime.month(.abbreviated).day().hour().minute()))"
+        }
+        if seconds < 60 { return "Back in less than a minute" }
+        let minutes = Int(ceil(seconds / 60))
+        if minutes >= 1440 { return "Back in \(minutes / 1440)d \((minutes % 1440) / 60)h" }
+        if minutes >= 60 { return "Back in \(minutes / 60)h \(minutes % 60)m" }
+        return "Back in \(minutes)m"
+    }
+}
+
+enum MenuBarDisplay: String, CaseIterable {
+    case percentage, remainingTime, iconOnly
+    var title: String {
+        switch self {
+        case .percentage: return "Percentage"
+        case .remainingTime: return "Remaining time"
+        case .iconOnly: return "Icon only"
+        }
+    }
+    static func countdown(to reset: Date, now: Date) -> String {
+        let seconds = reset.timeIntervalSince(now)
+        guard seconds > 0 else { return "Due" }
+        if seconds < 60 { return "<1m" }
+        let minutes = Int(ceil(seconds / 60))
+        if minutes >= 1440 { return "\(minutes / 1440)d \((minutes % 1440) / 60)h" }
+        if minutes >= 60 { return "\(minutes / 60)h \(minutes % 60)m" }
+        return "\(minutes)m"
+    }
+}
+
+enum AllowanceAlertPreset: String, CaseIterable {
+    case both, quarter, tenth, custom
+    var title: String {
+        switch self {
+        case .both: return "25% and 10%"
+        case .quarter: return "25%"
+        case .tenth: return "10%"
+        case .custom: return "Custom…"
+        }
+    }
+    func thresholds(custom: Int) -> [Int] {
+        switch self {
+        case .both: return [25, 10]
+        case .quarter: return [25]
+        case .tenth: return [10]
+        case .custom: return [max(1, min(99, custom))]
+        }
+    }
+}
+
+/// Store the top-left corner so changing panel height does not move its header.
+struct PinnedPanelPosition: Codable, Equatable, Sendable {
+    let x: Double
+    let top: Double
+    var isValid: Bool { x.isFinite && top.isFinite }
+    func frame(size: CGSize, in visible: CGRect) -> CGRect {
+        let width = min(size.width, max(1, visible.width - 16))
+        let height = min(size.height, max(1, visible.height - 16))
+        let left = max(visible.minX + 8, min(x, visible.maxX - width - 8))
+        let upper = max(visible.minY + height + 8, min(top, visible.maxY - 8))
+        return CGRect(x: left, y: upper - height, width: width, height: height)
     }
 }

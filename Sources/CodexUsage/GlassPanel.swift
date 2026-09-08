@@ -5,6 +5,8 @@ import Combine
 final class UsageWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     var dismiss: (() -> Void)?
+    var isUserDragging = false
+    var didFinishDragging: (() -> Void)?
     override func cancelOperation(_ sender: Any?) { dismiss?() }
 }
 
@@ -23,6 +25,8 @@ final class UsageWindow: NSPanel {
     private var updateAlert: NSAlert?
     private let updateActions = QuitAlertActions()
     private var updateObservation: AnyCancellable?
+    private var pinObservation: AnyCancellable?
+    private var screenObservation: NSObjectProtocol?
     private var presentedUpdatePhase: AppUpdatePhase?
     private let quitActions = QuitAlertActions()
     private var globalMonitor: Any?
@@ -36,6 +40,14 @@ final class UsageWindow: NSPanel {
             if store.confirmingQuit { self?.finishQuit(false) }
             else if updater.showingDialog { updater.closeDialog() }
             else { self?.close() }
+        }
+        window.didFinishDragging = { [weak self] in
+            guard let self, store.panelPinned else { return }
+            store.savePinnedPosition(PinnedPanelPosition(x: self.window.frame.minX, top: self.window.frame.maxY))
+            self.resize()
+        }
+        screenObservation = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.resize() }
         }
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -70,6 +82,10 @@ final class UsageWindow: NSPanel {
         updateObservation = updater.$showingDialog.combineLatest(updater.$phase, updater.$status)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _, _ in self?.presentUpdateAlert() }
+        pinObservation = store.$panelPinned.sink { [weak self] pinned in
+            self?.window.level = pinned ? .floating : .popUpMenu
+            self?.window.collectionBehavior = pinned ? [.moveToActiveSpace, .fullScreenAuxiliary] : [.transient, .moveToActiveSpace, .fullScreenAuxiliary]
+        }
         host.rootView.onConfirmQuit = { [weak self] in self?.confirmQuit() }
         host.rootView.onSizeChange = { [weak self] animated in self?.resize(animated: animated) }
         canvas.addSubview(surface)
@@ -238,16 +254,25 @@ final class UsageWindow: NSPanel {
     }
 
     func resize(animated: Bool = false) {
-        guard let anchor, let sourceWindow = anchor.window else { return }
+        guard !window.isUserDragging, let anchor, let sourceWindow = anchor.window else { return }
         let rect = sourceWindow.convertToScreen(anchor.convert(anchor.bounds, to: nil))
         let size = host.fittingSize
-        let visible = sourceWindow.screen?.visibleFrame ?? NSScreen.main!.visibleFrame
+        let saved = host.rootView.store.panelPinned ? host.rootView.store.pinnedPosition : nil
+        let screens = NSScreen.screens
+        let selectedScreen: NSScreen?
+        if let saved {
+            let point = CGPoint(x: saved.x, y: saved.top)
+            selectedScreen = screens.first(where: { $0.frame.contains(point) }) ?? screens.min(by: {
+                hypot($0.visibleFrame.midX - point.x, $0.visibleFrame.midY - point.y)
+                    < hypot($1.visibleFrame.midX - point.x, $1.visibleFrame.midY - point.y)
+            })
+        } else { selectedScreen = sourceWindow.screen }
+        guard let visible = (selectedScreen ?? NSScreen.main)?.visibleFrame else { return }
         let width = max(320, size.width) + shadowInset * 2
         let modalHeight = updateAlert.map { $0.window.frame.height + 44 } ?? 0
         let height = min(max(size.height, modalHeight), visible.height - 16) + shadowInset * 2
-        let x = max(visible.minX + 8 - shadowInset, min(rect.midX - width / 2, visible.maxX - width - 8 + shadowInset))
-        let y = max(visible.minY + 8 - shadowInset, rect.minY - height - 8 + shadowInset)
-        let frame = NSRect(x: x, y: y, width: width, height: height)
+        let position = saved ?? PinnedPanelPosition(x: rect.midX - width / 2, top: rect.minY - 8)
+        let frame = position.frame(size: CGSize(width: width, height: height), in: visible)
         if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.22
@@ -284,6 +309,10 @@ final class UsageWindow: NSPanel {
         globalMonitor = nil
         localMonitor = nil
     }
+    func dismissForOutsideClick() {
+        guard !host.rootView.store.panelPinned else { return }
+        close()
+    }
     private func isClickOnStatusButton() -> Bool {
         guard let anchor, let sourceWindow = anchor.window else { return false }
         let buttonFrame = sourceWindow.convertToScreen(anchor.convert(anchor.bounds, to: nil))
@@ -295,7 +324,7 @@ final class UsageWindow: NSPanel {
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self, !self.isClickOnStatusButton() else { return }
-            self.close()
+            self.dismissForOutsideClick()
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
             guard let self else { return event }
@@ -314,7 +343,7 @@ final class UsageWindow: NSPanel {
             if event.type != .keyDown, self.isClickOnStatusButton() { return event }
             if event.type != .keyDown, event.window != self.window, event.window != self.anchor?.window {
                 // Native menus use a separate window; allow their normal interaction.
-                if NSMenu.menuBarVisible(), event.window == nil { self.close() }
+                if NSMenu.menuBarVisible(), event.window == nil { self.dismissForOutsideClick() }
             }
             return event
         }
