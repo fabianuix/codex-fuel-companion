@@ -1,0 +1,17 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "planType": "go",
+    "primary": {
+      "usedPercent": 58,
+      "windowDurationMins": 300,
+      "resetsAt": 1788865200
+    },
+    "secondary": {
+      "usedPercent": 24,
+      "windowDurationMins": 10080,
+      "resetsAt": 1789376400
+    }
+  },
+  "accountId": "sample-go"
+}

@@ -1,0 +1,12 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "planType": "enterprise",
+    "credits": {
+      "hasCredits": true,
+      "unlimited": false,
+      "balance": "5000"
+    }
+  },
+  "accountId": "sample-enterprise"
+}

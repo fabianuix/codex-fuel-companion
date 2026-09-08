@@ -1,0 +1,22 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "planType": "business",
+    "primary": {
+      "usedPercent": 30,
+      "windowDurationMins": 300,
+      "resetsAt": 1788865200
+    },
+    "secondary": {
+      "usedPercent": 42,
+      "windowDurationMins": 10080,
+      "resetsAt": 1789376400
+    },
+    "credits": {
+      "hasCredits": true,
+      "unlimited": false,
+      "balance": "1200"
+    }
+  },
+  "accountId": "sample-business"
+}

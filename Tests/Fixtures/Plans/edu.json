@@ -1,0 +1,17 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "planType": "edu",
+    "primary": {
+      "usedPercent": 48,
+      "windowDurationMins": 300,
+      "resetsAt": 1788865200
+    },
+    "secondary": {
+      "usedPercent": 23,
+      "windowDurationMins": 10080,
+      "resetsAt": 1789376400
+    }
+  },
+  "accountId": "sample-edu"
+}

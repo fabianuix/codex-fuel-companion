@@ -1,0 +1,25 @@
+{
+  "rateLimits": {
+    "limitId": "codex",
+    "planType": "plus",
+    "primary": {
+      "usedPercent": 100,
+      "windowDurationMins": 300,
+      "resetsAt": 1788865200
+    },
+    "secondary": {
+      "usedPercent": 26,
+      "windowDurationMins": 10080,
+      "resetsAt": 1789376400
+    },
+    "credits": {
+      "hasCredits": true,
+      "unlimited": false,
+      "balance": "250"
+    }
+  },
+  "accountId": "sample-plus-exhausted",
+  "rateLimitResetCredits": {
+    "availableCount": 0
+  }
+}

@@ -1,0 +1,8 @@
+.build/
+dist/
+.DS_Store
+Resources/*.icns
+Resources/*.tiff
+__pycache__/
+*.pyc
+docs/plan-examples/*.png

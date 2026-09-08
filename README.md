@@ -69,9 +69,19 @@ Native Liquid Glass on macOS 26 and later, with a translucent panel on earlier s
 
 Your preferences stay on your Mac. There's no extra account to create and no analytics service receiving your usage. Update checks contact GitHub for new versions and downloads.
 
+## Explore the source
+
+The latest released source is available in [Sources](Sources/CodexUsage), with
+tests, build tools, and a [guide to building it](BUILDING.md).
+[Download the current source snapshot](https://github.com/fabianuix/codex-fuel-companion/archive/refs/heads/main.zip).
+See [SOURCE.json](SOURCE.json) for its version and file checksums.
+
+This repository is updated only for intentional public releases or finished
+documentation updates. The source is available for inspection; the existing
+[license](LICENSE) remains in effect.
+
 ---
 
 **Have a question or found a rough edge?** [Open an issue](https://github.com/fabianuix/codex-fuel-companion/issues) and include your app and macOS versions. Please leave private account details out.
 
 <p align="center"><sub>Made by <a href="https://github.com/fabianuix">Fabian</a> · An independent companion for Codex</sub></p>
-
