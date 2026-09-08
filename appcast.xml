@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Codex Fuel</title>
+        <item>
+            <title>1.04</title>
+            <pubDate>Tue, 08 Sep 2026 11:05:20 +0000</pubDate>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>1.04</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/fabianuix/codex-fuel-companion/releases/download/v1.04/Codex-Fuel-1.04.zip" length="2279057" type="application/octet-stream" sparkle:edSignature="TZKNHsiknwiJ4W+7t5g08ZP3Sq64b8/KjHdnEtSZDhmjlfK663CJw8DHzIrYPLhiIFYCXYDQP0mzUZBYbUhvBA=="/>
+        </item>
+    </channel>
+</rss>
