@@ -3,12 +3,12 @@
     <channel>
         <title>Codex Fuel</title>
         <item>
-            <title>1.01</title>
-            <pubDate>Tue, 08 Sep 2026 09:57:40 +0000</pubDate>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>1.01</sparkle:shortVersionString>
+            <title>1.02</title>
+            <pubDate>Tue, 08 Sep 2026 10:54:16 +0000</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>1.02</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/fabianuix/codex-fuel-companion/releases/download/v1.01/Codex-Fuel-1.01.zip" length="2107077" type="application/octet-stream" sparkle:edSignature="foYCUsU2y3VPKlxalo5X9WDZA2iNg30mBTajl79kKC2M6l2KrVZaP3yfc/bVD9R9rmxmjfRyu3P9AErSZpfeDQ=="/>
+            <enclosure url="https://github.com/fabianuix/codex-fuel-companion/releases/download/v1.02/Codex-Fuel-1.02.zip" length="2280709" type="application/octet-stream" sparkle:edSignature="Re8zmIWMWGSng8FGT3BJ6utrgItgCQQjOAYallYb9p2YpS4rB/pD0QsyRVp0C3GuO2MUOMHlRWbReoeOygMfCw=="/>
         </item>
     </channel>
 </rss>
