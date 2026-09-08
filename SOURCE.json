@@ -3,10 +3,10 @@
   "build": 17,
   "files": {
     ".gitignore": "0339baa527a27a9c3657a32e81b000e387573fe8a4b0d9f0aaef1396879e88c6",
-    "BUILDING.md": "651a7ad0ed2e25805240f19551c946626a6b2d64921c47895ad6e23f3a9298a9",
+    "BUILDING.md": "8f9e7a45ba8dbf2bfee99150aeaf5c251fb54efea02bcb34e77e0a2c6965ac4f",
     "LICENSE": "1482580462b6c6c69ec939a48df2d153b43128df71924e1dad174f407f6d6074",
     "Package.swift": "7553cc20c7bceac9b35ced787ffdec12cbf56fae2f5149d9b0ed2917d2542ab3",
-    "README.md": "190ce98766635f905d1c8c975dda0188c807ac43222991107b46ccb03ed920fd",
+    "README.md": "0753b0b3263d93782fb7f0550b4b16fadb77f2a33b5087859802915806082d89",
     "Resources/AppIcon.png": "fbf180a30bff723e264c91c6359fa5b671f7c9b6eb9d069f6f2934c3a412b5fe",
     "Sources/CodexUsage/AllowanceProgressStyle.swift": "85399592680579715291e65c97f5596560f7a3fbc8f8e0c04670e5efa3eff25d",
     "Sources/CodexUsage/App.swift": "b7eee7e685ce452f1f2ed62ff5536321931ce0c9cdda4f8ca2919dd5c8a5fea8",

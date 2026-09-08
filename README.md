@@ -80,6 +80,47 @@ This repository is updated only for intentional public releases or finished
 documentation updates. The source is available for inspection; the existing
 [license](LICENSE) remains in effect.
 
+## Build the app yourself
+
+You'll need **macOS 15 or later**, **Xcode command-line tools with Swift 6 or
+later**, and **Python 3**. The first build needs an internet connection to
+download the app's update framework.
+
+**1. Install the tools.** If you haven't installed Apple's command-line tools,
+open **Terminal** and run this, then finish the installation window:
+
+```sh
+xcode-select --install
+```
+
+**2. Get the source.** Run these commands in Terminal:
+
+```sh
+git clone https://github.com/fabianuix/codex-fuel-companion.git
+cd codex-fuel-companion
+```
+
+**3. Build and open the app.** Keep Terminal in that folder and run:
+
+```sh
+export CODEX_FUEL_VERSION="$(python3 -c 'import json; print(json.load(open("SOURCE.json"))["version"])')"
+./scripts/test.sh
+./scripts/build.sh --dev
+open "dist/Codex Fuel Dev.app"
+```
+
+The finished app is **Codex Fuel Dev.app** inside the **dist** folder. Look for
+its icon in the menu bar; it doesn't open a normal window or appear in the Dock.
+Sign in to Codex or the Codex CLI to see your account's usage.
+
+This creates a separate development app with its own preferences. It won't
+replace your installed release or install release updates. Quit the regular
+Codex Fuel app while testing to avoid a keyboard-shortcut conflict. No paid
+Apple Developer account or publishing credentials are needed for this local build.
+
+Need help with the tools, ZIP downloads, or additional tests? See the
+[full build guide](BUILDING.md).
+
 ---
 
 **Have a question or found a rough edge?** [Open an issue](https://github.com/fabianuix/codex-fuel-companion/issues) and include your app and macOS versions. Please leave private account details out.
