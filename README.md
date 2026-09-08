@@ -42,12 +42,12 @@ no extra Dock icon.
 ## Get started
 
 1. Install and sign in to Codex, or the Codex CLI, on your Mac.
-2. Download **[Codex Fuel 1.0](https://github.com/fabianuix/codex-fuel-companion/releases/latest)**, unzip it, and move **Codex Fuel** into **Applications**.
+2. Download **[Codex Fuel 1.01](https://github.com/fabianuix/codex-fuel-companion/releases/latest)**, unzip it, and move **Codex Fuel** into **Applications**.
 3. Open Codex Fuel and look for its icon in the menu bar.
 
 Open **Settings** using the gear icon to configure alerts, your keyboard shortcut, launch at login, and app updates.
 
-Version **1.0** is available for Apple silicon and Intel. Downloads include a checksum, and automatic updates are authenticated with the app’s signing key. This release is not Apple-notarized, so macOS may require manual approval on first launch.
+Version **1.01** is available for Apple silicon and Intel. Downloads include a checksum, and automatic updates are authenticated with the app’s signing key.
 
 If you have the earlier private build, install this version once to enable future automatic updates.
 
